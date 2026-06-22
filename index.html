@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checklist Álbum da Copa do Mundo 2026</title>
+  <link rel="stylesheet" href="styles.css?v=1">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header>
+      <div class="header-title">
+        <h1>
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trophy" style="color: #d97706;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"/><path d="M12 2a6 6 0 0 1 6 6v5a6 6 0 0 1-6 6 6 6 0 0 1-6-6V8a6 6 0 0 1 6-6z"/></svg>
+          Álbum Copa 2026 Checklist
+        </h1>
+        <p>Acompanhe o preenchimento do seu álbum Panini da Copa do Mundo de 2026 (48 seleções)</p>
+      </div>
+    </header>
+
+    <!-- Dashboard -->
+    <section class="dashboard">
+      <!-- Progresso Geral -->
+      <div class="db-card db-overall">
+        <div class="db-card-title">
+          <i data-lucide="pie-chart"></i>
+          <span>Progresso do Álbum</span>
+        </div>
+        <div class="prog-stats-layout">
+          <div class="progress-circle-wrapper">
+            <svg class="circle-svg">
+              <circle class="circle-bg" cx="60" cy="60" r="50" />
+              <circle id="album-progress-circle" class="circle-val" cx="60" cy="60" r="50" stroke-dasharray="314.16" stroke-dashoffset="314.16" />
+            </svg>
+            <span id="album-progress-text" class="circle-text">0%</span>
+            <span class="circle-label">Concluído</span>
+          </div>
+          <div class="quick-details">
+            <div class="detail-item">
+              <span class="detail-badge" style="background-color: var(--wc-green);"></span>
+              <span class="detail-text">Figurinhas Coladas: <span id="lbl-coladas" class="detail-count">0 / 940</span></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-badge" style="background-color: var(--text-muted);"></span>
+              <span class="detail-text">Faltando: <span id="lbl-faltando" class="detail-count">940</span></span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-badge" style="background-color: var(--wc-blue);"></span>
+              <span class="detail-text">Repetidas: <span id="lbl-repetidas" class="detail-count">0</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contadores Rápidos -->
+      <div class="db-card db-counters">
+        <div class="db-card-title">
+          <i data-lucide="activity"></i>
+          <span>Resumo da Coleção</span>
+        </div>
+        <div class="counter-grid">
+          <div class="counter-box">
+            <div class="counter-icon" style="color: var(--wc-green);">⚽</div>
+            <div class="counter-info">
+              <span id="stat-total-acquired" class="counter-val">0</span>
+              <span class="counter-label">Total Adquiridas</span>
+            </div>
+          </div>
+          <div class="counter-box">
+            <div class="counter-icon" style="color: var(--wc-blue);">♻️</div>
+            <div class="counter-info">
+              <span id="stat-total-repeated" class="counter-val">0</span>
+              <span class="counter-label">Total Repetidas</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progresso de Grupos -->
+      <div class="db-card db-groups">
+        <div class="db-card-title">
+          <i data-lucide="list-todo"></i>
+          <span>Progresso por Grupo</span>
+        </div>
+        <div id="groups-progress-list" class="groups-list-container">
+          <!-- Injetado dinamicamente -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Filtros e Controles -->
+    <section class="filters-section">
+      <!-- Busca e Filtros Principais -->
+      <div class="filter-row">
+        <div class="search-wrapper">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="text" id="search-input" class="search-input" placeholder="Buscar por jogador ou nº (ex: Neymar, BRA-14 ou FWC-0)...">
+        </div>
+        
+        <div class="select-wrapper">
+          <select id="status-filter" class="filter-select">
+            <option value="all">Todas as figurinhas</option>
+            <option value="owned">Figurinhas coladas (Já tenho)</option>
+            <option value="missing">Figurinhas faltando (Não tenho)</option>
+            <option value="repeated">Apenas as repetidas</option>
+          </select>
+
+          <select id="sort-order" class="filter-select">
+            <option value="num-asc">Ordem do Álbum (Crescente)</option>
+            <option value="num-desc">Ordem do Álbum (Decrescente)</option>
+            <option value="name-asc">Nome (A-Z)</option>
+            <option value="name-desc">Nome (Z-A)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Filtro por Grupos (Carrossel Horizontal) -->
+      <div class="filter-row">
+        <span class="scroll-wrapper-title">Grupo:</span>
+        <div id="group-filter-buttons" class="horizontal-scroll-container">
+          <button class="filter-btn active" data-group="all">Todos</button>
+          <button class="filter-btn" data-group="Especiais">Fifa/Estádios</button>
+          <button class="filter-btn" data-group="Grupo A">Grupo A</button>
+          <button class="filter-btn" data-group="Grupo B">Grupo B</button>
+          <button class="filter-btn" data-group="Grupo C">Grupo C</button>
+          <button class="filter-btn" data-group="Grupo D">Grupo D</button>
+          <button class="filter-btn" data-group="Grupo E">Grupo E</button>
+          <button class="filter-btn" data-group="Grupo F">Grupo F</button>
+          <button class="filter-btn" data-group="Grupo G">Grupo G</button>
+          <button class="filter-btn" data-group="Grupo H">Grupo H</button>
+          <button class="filter-btn" data-group="Grupo I">Grupo I</button>
+          <button class="filter-btn" data-group="Grupo J">Grupo J</button>
+          <button class="filter-btn" data-group="Grupo K">Grupo K</button>
+          <button class="filter-btn" data-group="Grupo L">Grupo L</button>
+          <button class="filter-btn" data-group="Lendas">Lendas</button>
+        </div>
+      </div>
+
+      <!-- Filtro por Seleção (Bandeiras) -->
+      <div class="filter-row">
+        <span class="scroll-wrapper-title">Seleção:</span>
+        <div id="country-filter-buttons" class="horizontal-scroll-container">
+          <button class="filter-btn active" data-country="all">Todas as Seleções</button>
+          <!-- Gerado dinamicamente -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Grid de Figurinhas -->
+    <main class="album-grid" id="album-grid">
+      <div class="loader"></div>
+    </main>
+
+    <!-- Botão de Voltar ao Topo -->
+    <button id="scroll-to-top" class="scroll-to-top" title="Voltar ao topo">
+      <i data-lucide="arrow-up"></i>
+    </button>
+
+    <!-- Footer -->
+    <footer>
+      <p>Desenvolvido para colecionadores do álbum oficial Panini da Copa do Mundo de 2026. Imagens de bandeiras fornecidas por <a href="https://flagcdn.com/" target="_blank" style="color: var(--wc-green); text-decoration: none; font-weight: 600;">FlagCDN</a>.</p>
+    </footer>
+  </div>
+
+  <!-- Modal de Detalhes da Figurinha -->
+  <div id="sticker-modal" class="modal-overlay">
+    <div class="modal-container">
+      <button class="modal-close-btn" id="modal-close-btn">
+        <i data-lucide="x"></i>
+      </button>
+      
+      <div class="modal-header-section">
+        <span class="modal-sticker-code" id="modal-sticker-code">BRA-10</span>
+        <h2 class="modal-sticker-name" id="modal-sticker-name">Neymar Jr</h2>
+        <img class="modal-sticker-flag" id="modal-sticker-flag" src="" alt="">
+        <span class="modal-sticker-country" id="modal-sticker-country">Brasil</span>
+      </div>
+
+      <div class="modal-detail-row">
+        <span style="color: var(--text-secondary); font-weight: 500;">Posição / Categoria</span>
+        <span id="modal-pos-val" style="font-weight: 700; color: var(--text-primary);">Atacante</span>
+      </div>
+      <div class="modal-detail-row">
+        <span style="color: var(--text-secondary); font-weight: 500;">Fase / Grupo</span>
+        <span id="modal-group-val" style="font-weight: 700; color: var(--text-primary);">Grupo D</span>
+      </div>
+
+      <!-- Contador de Figurinhas (Colada + Repetidas) -->
+      <div class="modal-counter-section">
+        <span class="modal-counter-label">Quantidade que você possui:</span>
+        <div class="counter-controls">
+          <button class="counter-btn" id="btn-count-minus">−</button>
+          <span class="counter-value" id="sticker-count-value">0</span>
+          <button class="counter-btn" id="btn-count-plus">+</button>
+        </div>
+        <p id="counter-status-lbl" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-top: 8px; text-align: center;">
+          Não possui esta figurinha
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Banco de dados -->
+  <script src="albumData.js"></script>
+  <!-- Lógica da aplicação -->
+  <script src="app.js"></script>
+</body>
+</html>
