@@ -1,5 +1,6 @@
 // Estado do Sistema
 let stickerCounts = {}; // id_figurinha -> quantidade (0, 1, 2, ...)
+let cachedPlayerImages = {}; // nome_jogador -> URL_imagem ou "not_found"
 let filteredStickers = [];
 let currentIndex = 0;
 const renderChunkSize = 80;
@@ -47,6 +48,16 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       console.error("Erro ao ler localStorage:", e);
       stickerCounts = {};
+    }
+  }
+
+  const savedImages = localStorage.getItem("panini_wc2026_cached_images");
+  if (savedImages) {
+    try {
+      cachedPlayerImages = JSON.parse(savedImages);
+    } catch (e) {
+      console.error("Erro ao ler cached images:", e);
+      cachedPlayerImages = {};
     }
   }
 
@@ -368,7 +379,18 @@ function renderMoreStickers() {
     } else if (s.position === "Lenda") {
       bodyIcon = `<span class="sticker-special-icon">🏆</span>`;
     } else {
-      bodyIcon = `<i data-lucide="user" class="sticker-silhouette"></i>`;
+      // É um jogador comum
+      const imgCached = cachedPlayerImages[s.name];
+      if (isOwned && imgCached && imgCached !== "not_found") {
+        bodyIcon = `<img class="sticker-player-img" src="${imgCached}" alt="player" loading="lazy">`;
+      } else {
+        bodyIcon = `<i data-lucide="user" class="sticker-silhouette"></i>`;
+        
+        // Se é possuído e ainda não buscamos a foto, buscar agora em segundo plano
+        if (isOwned && !imgCached) {
+          fetchPlayerImage(s.name, s.id);
+        }
+      }
     }
 
     card.innerHTML = `
@@ -417,13 +439,22 @@ function renderMoreStickers() {
 // Alternar status de forma rápida (clique simples: 0 <-> 1 cópia)
 function toggleQuickSticker(stickerId) {
   const currentCount = stickerCounts[stickerId] || 0;
+  let newCount = 0;
   
   if (currentCount >= 1) {
     // Desmarcar completamente (vai para 0)
     stickerCounts[stickerId] = 0;
+    newCount = 0;
   } else {
     // Adicionar 1 cópia
     stickerCounts[stickerId] = 1;
+    newCount = 1;
+    
+    // Se marcou como adquirido, disparar busca da imagem em segundo plano
+    const sticker = albumStickers.find(s => s.id === stickerId);
+    if (sticker && sticker.position !== "Escudo" && !stickerId.startsWith("FWC") && !stickerId.startsWith("LEG")) {
+      fetchPlayerImage(sticker.name, stickerId);
+    }
   }
 
   // Salvar no localStorage
@@ -447,6 +478,30 @@ function updateCardVisual(stickerId) {
     card.classList.add("owned");
   } else {
     card.classList.remove("owned");
+  }
+
+  // Se tornou possuído, atualizar a imagem do jogador se aplicável
+  if (isOwned) {
+    const sticker = albumStickers.find(s => s.id === stickerId);
+    if (sticker && sticker.position !== "Escudo" && !stickerId.startsWith("FWC") && !stickerId.startsWith("LEG")) {
+      const imgCached = cachedPlayerImages[sticker.name];
+      if (imgCached && imgCached !== "not_found") {
+        const body = card.querySelector(".sticker-body");
+        if (body) body.innerHTML = `<img class="sticker-player-img" src="${imgCached}" alt="player" loading="lazy">`;
+      } else {
+        fetchPlayerImage(sticker.name, stickerId);
+      }
+    }
+  } else {
+    // Se perdeu a posse, voltar para a silhueta padrão se aplicável
+    const sticker = albumStickers.find(s => s.id === stickerId);
+    if (sticker && sticker.position !== "Escudo" && !stickerId.startsWith("FWC") && !stickerId.startsWith("LEG")) {
+      const body = card.querySelector(".sticker-body");
+      if (body) {
+        body.innerHTML = `<i data-lucide="user" class="sticker-silhouette"></i>`;
+        lucide.createIcons();
+      }
+    }
   }
 
   // Atualizar badge de repetidas
@@ -480,6 +535,34 @@ function openModal(sticker) {
     modalStickerFlag.style.display = "";
   } else {
     modalStickerFlag.style.display = "none";
+  }
+
+  // Gerenciar foto/símbolo do modal
+  const modalPhoto = document.getElementById("modal-player-photo");
+  const modalPhotoWrapper = document.getElementById("modal-photo-wrapper");
+
+  // Silhouette padrão de jogador
+  modalPhoto.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>";
+  modalPhotoWrapper.style.display = "flex";
+
+  if (sticker.position === "Escudo") {
+    // Escudo/Crest
+    modalPhoto.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23d97706' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/></svg>";
+  } else if (sticker.group === "Especiais") {
+    // Bola/Planeta
+    modalPhoto.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><path d='M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20'/><path d='M2 12h20'/></svg>";
+  } else if (sticker.group === "Lendas") {
+    // Troféu
+    modalPhoto.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23d97706' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6'/><path d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18'/><path d='M4 22h16'/><path d='M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34'/><path d='M12 2a6 6 0 0 1 6 6v5a6 6 0 0 1-6 6 6 6 0 0 1-6-6V8a6 6 0 0 1 6-6z'/></svg>";
+  } else {
+    // Jogador comum
+    const imgCached = cachedPlayerImages[sticker.name];
+    if (imgCached && imgCached !== "not_found") {
+      modalPhoto.src = imgCached;
+    } else {
+      // Disparar busca assíncrona
+      fetchPlayerImage(sticker.name, sticker.id);
+    }
   }
 
   // Atualizar quantidade na tela
@@ -533,5 +616,71 @@ function updateModalLabel(count) {
     const reps = count - 1;
     counterStatusLbl.textContent = `Colada + ${reps} ${reps === 1 ? 'repetida' : 'repetidas'} para trocar!`;
     counterStatusLbl.style.color = "var(--wc-blue)";
+  }
+}
+
+// Buscar e fazer cache da foto do jogador na API pública TheSportsDB
+async function fetchPlayerImage(playerName, stickerId) {
+  if (!playerName || playerName.startsWith("Jogador") || playerName.startsWith("Escudo") || playerName.startsWith("Official") || playerName.startsWith("Emblem") || playerName.startsWith("Panini")) {
+    return null;
+  }
+
+  // Se já cacheado, retornar
+  if (cachedPlayerImages[playerName]) {
+    const cachedVal = cachedPlayerImages[playerName];
+    if (cachedVal === "not_found") return null;
+    
+    // Atualizar na interface
+    updatePlayerImageOnElements(stickerId, cachedVal);
+    return cachedVal;
+  }
+
+  try {
+    const response = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodeURIComponent(playerName)}`);
+    if (!response.ok) throw new Error("Erro de rede");
+    const data = await response.json();
+
+    if (data && data.player && data.player.length > 0) {
+      // Filtrar por esporte soccer para evitar homônimos de outros esportes
+      const soccerPlayers = data.player.filter(p => p.strSport === "Soccer");
+      const player = soccerPlayers.length > 0 ? soccerPlayers[0] : data.player[0];
+      
+      const imgUrl = player.strCutout || player.strThumb || null;
+      if (imgUrl) {
+        cachedPlayerImages[playerName] = imgUrl;
+        localStorage.setItem("panini_wc2026_cached_images", JSON.stringify(cachedPlayerImages));
+        updatePlayerImageOnElements(stickerId, imgUrl);
+        return imgUrl;
+      }
+    }
+  } catch (error) {
+    console.error(`Erro ao buscar imagem do jogador ${playerName}:`, error);
+  }
+
+  // Se falhar ou não achar, salvar placeholder para evitar múltiplas chamadas
+  cachedPlayerImages[playerName] = "not_found";
+  localStorage.setItem("panini_wc2026_cached_images", JSON.stringify(cachedPlayerImages));
+  return null;
+}
+
+// Atualizar imagem do jogador nos elementos ativos (card e modal)
+function updatePlayerImageOnElements(stickerId, imgUrl) {
+  // 1. Atualizar card
+  const card = albumGrid.querySelector(`.sticker-card[data-id="${stickerId}"]`);
+  if (card) {
+    const body = card.querySelector(".sticker-body");
+    // Se a figurinha é do tipo jogador comum, exibe a foto do jogador
+    if (body && !card.classList.contains("shiny") && !stickerId.startsWith("FWC")) {
+      body.innerHTML = `<img class="sticker-player-img" src="${imgUrl}" alt="player" loading="lazy">`;
+    }
+  }
+
+  // 2. Atualizar no modal
+  if (activeModalStickerId === stickerId) {
+    const modalPhoto = document.getElementById("modal-player-photo");
+    if (modalPhoto) {
+      modalPhoto.src = imgUrl;
+      modalPhoto.style.display = "";
+    }
   }
 }
