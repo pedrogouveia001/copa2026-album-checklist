@@ -1,6 +1,7 @@
 // Estado do Sistema
 let stickerCounts = {}; // id_figurinha -> quantidade (0, 1, 2, ...)
 let cachedPlayerImages = {}; // nome_jogador -> URL_imagem ou "not_found"
+let cachedTeamCrests = {}; // nome_selecao -> URL_imagem ou "not_found"
 let filteredStickers = [];
 let currentIndex = 0;
 const renderChunkSize = 80;
@@ -58,6 +59,16 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       console.error("Erro ao ler cached images:", e);
       cachedPlayerImages = {};
+    }
+  }
+
+  const savedCrests = localStorage.getItem("panini_wc2026_cached_crests");
+  if (savedCrests) {
+    try {
+      cachedTeamCrests = JSON.parse(savedCrests);
+    } catch (e) {
+      console.error("Erro ao ler cached crests:", e);
+      cachedTeamCrests = {};
     }
   }
 
@@ -373,7 +384,15 @@ function renderMoreStickers() {
     // Ícone da silhueta ou símbolo especial
     let bodyIcon = "";
     if (s.position === "Escudo") {
-      bodyIcon = `<span class="sticker-special-icon">🛡️</span>`;
+      const crestCached = cachedTeamCrests[s.country_name];
+      if (isOwned && crestCached && crestCached !== "not_found") {
+        bodyIcon = `<img class="sticker-player-img" src="${crestCached}" alt="crest" loading="lazy" style="max-width: 80%; max-height: 80%;">`;
+      } else {
+        bodyIcon = `<span class="sticker-special-icon">🛡️</span>`;
+        if (isOwned && !crestCached) {
+          fetchTeamCrest(s.country_name, s.id);
+        }
+      }
     } else if (s.position === "Especial") {
       bodyIcon = `<span class="sticker-special-icon">⭐</span>`;
     } else if (s.position === "Lenda") {
@@ -452,8 +471,12 @@ function toggleQuickSticker(stickerId) {
     
     // Se marcou como adquirido, disparar busca da imagem em segundo plano
     const sticker = albumStickers.find(s => s.id === stickerId);
-    if (sticker && sticker.position !== "Escudo" && !stickerId.startsWith("FWC") && !stickerId.startsWith("LEG")) {
-      fetchPlayerImage(sticker.name, stickerId);
+    if (sticker) {
+      if (sticker.position === "Escudo") {
+        fetchTeamCrest(sticker.country_name, stickerId);
+      } else if (!stickerId.startsWith("FWC") && !stickerId.startsWith("LEG")) {
+        fetchPlayerImage(sticker.name, stickerId);
+      }
     }
   }
 
@@ -480,26 +503,40 @@ function updateCardVisual(stickerId) {
     card.classList.remove("owned");
   }
 
-  // Se tornou possuído, atualizar a imagem do jogador se aplicável
+  // Se tornou possuído, atualizar a imagem do jogador ou escudo se aplicável
   if (isOwned) {
     const sticker = albumStickers.find(s => s.id === stickerId);
-    if (sticker && sticker.position !== "Escudo" && !stickerId.startsWith("FWC") && !stickerId.startsWith("LEG")) {
-      const imgCached = cachedPlayerImages[sticker.name];
-      if (imgCached && imgCached !== "not_found") {
-        const body = card.querySelector(".sticker-body");
-        if (body) body.innerHTML = `<img class="sticker-player-img" src="${imgCached}" alt="player" loading="lazy">`;
-      } else {
-        fetchPlayerImage(sticker.name, stickerId);
+    if (sticker) {
+      if (sticker.position === "Escudo") {
+        const crestCached = cachedTeamCrests[sticker.country_name];
+        if (crestCached && crestCached !== "not_found") {
+          const body = card.querySelector(".sticker-body");
+          if (body) body.innerHTML = `<img class="sticker-player-img" src="${crestCached}" alt="crest" loading="lazy" style="max-width: 80%; max-height: 80%;">`;
+        } else {
+          fetchTeamCrest(sticker.country_name, stickerId);
+        }
+      } else if (!stickerId.startsWith("FWC") && !stickerId.startsWith("LEG")) {
+        const imgCached = cachedPlayerImages[sticker.name];
+        if (imgCached && imgCached !== "not_found") {
+          const body = card.querySelector(".sticker-body");
+          if (body) body.innerHTML = `<img class="sticker-player-img" src="${imgCached}" alt="player" loading="lazy">`;
+        } else {
+          fetchPlayerImage(sticker.name, stickerId);
+        }
       }
     }
   } else {
-    // Se perdeu a posse, voltar para a silhueta padrão se aplicável
+    // Se perdeu a posse, voltar para a silhueta ou escudo padrão
     const sticker = albumStickers.find(s => s.id === stickerId);
-    if (sticker && sticker.position !== "Escudo" && !stickerId.startsWith("FWC") && !stickerId.startsWith("LEG")) {
+    if (sticker) {
       const body = card.querySelector(".sticker-body");
       if (body) {
-        body.innerHTML = `<i data-lucide="user" class="sticker-silhouette"></i>`;
-        lucide.createIcons();
+        if (sticker.position === "Escudo") {
+          body.innerHTML = `<span class="sticker-special-icon">🛡️</span>`;
+        } else if (!stickerId.startsWith("FWC") && !stickerId.startsWith("LEG")) {
+          body.innerHTML = `<i data-lucide="user" class="sticker-silhouette"></i>`;
+          lucide.createIcons();
+        }
       }
     }
   }
@@ -547,7 +584,13 @@ function openModal(sticker) {
 
   if (sticker.position === "Escudo") {
     // Escudo/Crest
-    modalPhoto.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23d97706' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/></svg>";
+    const crestCached = cachedTeamCrests[sticker.country_name];
+    if (crestCached && crestCached !== "not_found") {
+      modalPhoto.src = crestCached;
+    } else {
+      modalPhoto.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23d97706' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/></svg>";
+      fetchTeamCrest(sticker.country_name, sticker.id);
+    }
   } else if (sticker.group === "Especiais") {
     // Bola/Planeta
     modalPhoto.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><path d='M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20'/><path d='M2 12h20'/></svg>";
@@ -681,6 +724,70 @@ function updatePlayerImageOnElements(stickerId, imgUrl) {
     if (modalPhoto) {
       modalPhoto.src = imgUrl;
       modalPhoto.style.display = "";
+    }
+  }
+}
+
+// Buscar e fazer cache do escudo da seleção na API pública TheSportsDB
+async function fetchTeamCrest(teamName, stickerId) {
+  if (!teamName || teamName === "FIFA" || teamName === "Lendas") {
+    return null;
+  }
+
+  // Se já cacheado, retornar
+  if (cachedTeamCrests[teamName]) {
+    const cachedVal = cachedTeamCrests[teamName];
+    if (cachedVal === "not_found") return null;
+    
+    // Atualizar na interface
+    updateTeamCrestOnElements(stickerId, teamName, cachedVal);
+    return cachedVal;
+  }
+
+  try {
+    const response = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`);
+    if (!response.ok) throw new Error("Erro de rede");
+    const data = await response.json();
+
+    if (data && data.teams && data.teams.length > 0) {
+      // Filtrar por esporte soccer para evitar homônimos
+      const soccerTeams = data.teams.filter(t => t.strSport === "Soccer");
+      const team = soccerTeams.length > 0 ? soccerTeams[0] : data.teams[0];
+      
+      const imgUrl = team.strTeamBadge || null;
+      if (imgUrl) {
+        cachedTeamCrests[teamName] = imgUrl;
+        localStorage.setItem("panini_wc2026_cached_crests", JSON.stringify(cachedTeamCrests));
+        updateTeamCrestOnElements(stickerId, teamName, imgUrl);
+        return imgUrl;
+      }
+    }
+  } catch (error) {
+    console.error(`Erro ao buscar escudo de ${teamName}:`, error);
+  }
+
+  // Se falhar ou não achar, salvar placeholder para evitar múltiplas chamadas
+  cachedTeamCrests[teamName] = "not_found";
+  localStorage.setItem("panini_wc2026_cached_crests", JSON.stringify(cachedTeamCrests));
+  return null;
+}
+
+// Atualizar imagem do escudo nos elementos ativos
+function updateTeamCrestOnElements(stickerId, teamName, imgUrl) {
+  // 1. Atualizar card
+  const card = albumGrid.querySelector(`.sticker-card[data-id="${stickerId}"]`);
+  if (card) {
+    const body = card.querySelector(".sticker-body");
+    if (body && card.classList.contains("shiny") && stickerId.endsWith("-1")) {
+      body.innerHTML = `<img class="sticker-player-img" src="${imgUrl}" alt="crest" loading="lazy" style="max-width: 80%; max-height: 80%;">`;
+    }
+  }
+
+  // 2. Atualizar no modal
+  if (activeModalStickerId === stickerId) {
+    const modalPhoto = document.getElementById("modal-player-photo");
+    if (modalPhoto) {
+      modalPhoto.src = imgUrl;
     }
   }
 }
